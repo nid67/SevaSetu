@@ -3,12 +3,13 @@ import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 // Replace these with actual Firebase config values when deploying
 const firebaseConfig = {
-  apiKey: "demo-api-key",
-  authDomain: "demo-project.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "sevasetu-demo",
-  storageBucket: "demo-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef"
+  apiKey: "AIzaSyCYi9DRiL92GEVtvXrxKDpGY7c_ds67NO4",
+  authDomain: "sevasetu-4.firebaseapp.com",
+  projectId: "sevasetu-4",
+  storageBucket: "sevasetu-4.firebasestorage.app",
+  messagingSenderId: "194176208762",
+  appId: "1:194176208762:web:785d637bc14c20bf08d0c3",
+  measurementId: "G-P1MFRGSN19"
 };
 
 const app = initializeApp(firebaseConfig);

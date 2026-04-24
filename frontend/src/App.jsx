@@ -1,11 +1,14 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SystemProvider } from './context/SystemContext';
 import Layout from './components/Layout';
 import DataIngestion from './pages/DataIngestion';
 import Overview from './pages/Overview';
 import Volunteers from './pages/Volunteers';
 import NGODashboard from './pages/NGODashboard';
 import Login from './pages/Login';
+import Messages from './pages/Messages';
+import Settings from './pages/Settings';
 
 const ProtectedRoute = ({ children, allowedRole }) => {
   const { role } = useAuth();
@@ -42,6 +45,8 @@ function AppRoutes() {
         <Route path="volunteers" element={
           <ProtectedRoute allowedRole="ngo"><Volunteers /></ProtectedRoute>
         } />
+        <Route path="settings" element={<Settings />} />
+        <Route path="messages" element={<Messages />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
@@ -52,9 +57,11 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <SystemProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </SystemProvider>
     </AuthProvider>
   );
 }

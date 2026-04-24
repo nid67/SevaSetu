@@ -1,21 +1,157 @@
-import { Activity, Clock, AlertCircle, BarChart3, ChevronDown, Bell } from 'lucide-react';
+import { Activity, Clock, AlertCircle, BarChart3, ChevronDown, Bell, User as UserIcon, Plus, X as XIcon, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { collection, onSnapshot, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+
+function AddVolunteerModal({ isOpen, onClose }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    specialty: 'General Support',
+    sector: 'Sector 4',
+    address: '',
+    experience: ''
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await addDoc(collection(db, 'volunteers'), {
+        ...formData,
+        status: 'active',
+        created_at: serverTimestamp()
+      });
+      alert('Volunteer added successfully!');
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add volunteer');
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content animate-fade-in" style={{ maxWidth: '600px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h2 style={{ fontWeight: 700 }}>Register New Volunteer</h2>
+          <XIcon size={24} onClick={onClose} style={{ cursor: 'pointer' }} />
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>FULL NAME</label>
+              <input 
+                required
+                className="search-bar" style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)' }}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>SPECIALTY</label>
+              <select 
+                className="search-bar" style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)', padding: '8px 16px' }}
+                onChange={e => setFormData({...formData, specialty: e.target.value})}
+              >
+                <option>General Support</option>
+                <option>Medical</option>
+                <option>Rescue</option>
+                <option>Logistics</option>
+                <option>Communication</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>EMAIL</label>
+              <input 
+                required type="email"
+                className="search-bar" style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)' }}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>PHONE</label>
+              <input 
+                required
+                className="search-bar" style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)' }}
+                onChange={e => setFormData({...formData, phone: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>RESIDENTIAL ADDRESS</label>
+            <textarea 
+              rows="2"
+              className="search-bar" style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)', height: 'auto', padding: '12px' }}
+              onChange={e => setFormData({...formData, address: e.target.value})}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>SKILLS & ADDITIONAL NOTES</label>
+            <textarea 
+              rows="2"
+              placeholder="e.g. Speaks multiple languages, certified first-aider, etc."
+              className="search-bar" style={{ width: '100%', background: 'white', border: '1px solid var(--border-color)', height: 'auto', padding: '12px' }}
+              onChange={e => setFormData({...formData, experience: e.target.value})}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary"><Plus size={18} /> Register Volunteer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function Volunteers() {
+  const [vols, setVols] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'volunteers'), (snapshot) => {
+      const fetchedVols = [];
+      snapshot.forEach(doc => fetchedVols.push(doc.data()));
+      setVols(fetchedVols);
+    });
+    return () => unsub();
+  }, []);
+
+  const activeVols = vols.filter(v => v.status === 'active').length;
+  const leaveVols = vols.filter(v => v.status === 'on_leave').length;
+
   const stats = [
-    { label: 'Active Field Personnel', value: '142', change: '+12%', icon: null, active: false, type: 'up' },
-    { label: 'Avg Shift Duration', value: '9.4h', change: '+1.2h', icon: null, active: false, type: 'up' },
-    { label: 'Critical Burnout Risk', value: '8', change: 'Volunteers', icon: null, active: true, type: 'text' },
+    { label: 'Active Field Personnel', value: activeVols.toString(), change: '+12%', type: 'up' },
+    { label: 'On Leave', value: leaveVols.toString(), change: 'Resting', type: 'text' },
+    { label: 'Avg Shift Duration', value: '9.4h', change: '+1.2h', type: 'up' },
+    { label: 'Critical Burnout Risk', value: '0', change: 'Volunteers', active: true, type: 'text' },
   ];
 
   return (
-    <div>
+    <div className="animate-fade-in">
+      <AddVolunteerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Volunteer Health & Wellness Panel</h1>
           <p className="page-subtitle">Real-time monitoring of active field personnel workload and burnout risk factors.</p>
         </div>
-        <div style={{ background: '#e0e7ff', color: 'var(--primary-blue)', padding: '6px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 8, height: 8, background: 'var(--primary-blue)', borderRadius: '50%' }} /> Live Sync
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+            <Plus size={18} /> Add New Volunteer
+          </button>
+          <div style={{ background: '#e0e7ff', color: 'var(--primary-blue)', padding: '6px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, background: 'var(--primary-blue)', borderRadius: '50%' }} /> Live Sync
+          </div>
         </div>
       </div>
 
@@ -73,112 +209,112 @@ function Volunteers() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginBottom: 32 }}>
-        {/* High Risk Card */}
-        <div className="card" style={{ borderTop: '4px solid var(--danger-red)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fee2e2', overflow: 'hidden' }}>
-                <img src="https://i.pravatar.cc/150?u=sarah" alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {vols.map((vol, i) => (
+          <div key={i} className="card" style={{ borderTop: `4px solid ${vol.status === 'active' ? 'var(--success-green)' : 'var(--warning-orange)'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UserIcon size={20} color="var(--text-secondary)" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{vol.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{vol.specialty} • {vol.sector}</div>
+                </div>
+              </div>
+              <span style={{ 
+                fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4,
+                background: vol.status === 'active' ? 'var(--success-green-bg)' : 'var(--warning-orange-bg)',
+                color: vol.status === 'active' ? 'var(--success-green)' : 'var(--warning-orange)'
+              }}>
+                {vol.status.toUpperCase()}
+              </span>
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
+                <span>Current Shift Workload</span>
+                <span>{vol.status === 'active' ? '45%' : '0%'}</span>
+              </div>
+              <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3 }}>
+                <div style={{ width: vol.status === 'active' ? '45%' : '0%', height: '100%', background: 'var(--primary-blue)', borderRadius: 3 }} />
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 24 }}>
+              <Clock size={14} /> Active Time
+              <span style={{ marginLeft: 'auto', fontWeight: 600 }}>{vol.status === 'active' ? '4h 12m' : 'N/A'}</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>STATUS</div>
+                <select 
+                  defaultValue={vol.status}
+                  onChange={async (e) => {
+                    const newStatus = e.target.value;
+                    await updateDoc(doc(db, 'volunteers', vol.id), { status: newStatus });
+                    await addDoc(collection(db, 'messages'), {
+                      to: vol.id,
+                      from: 'NGO Admin',
+                      text: `Your status has been updated to ${newStatus}.`,
+                      type: 'notification',
+                      timestamp: serverTimestamp()
+                    });
+                  }}
+                  style={{ width: '100%', padding: '6px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border-color)' }}
+                >
+                  <option value="active">Active</option>
+                  <option value="on-leave">On Leave</option>
+                  <option value="unavailable">Unavailable</option>
+                </select>
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>Sarah Jenkins</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Medic Lead • Sector 4</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>ASSIGN TASK</div>
+                <button 
+                  className="btn btn-outline" 
+                  style={{ width: '100%', padding: '6px', fontSize: 11 }}
+                  onClick={() => {
+                    const task = prompt('Enter task details or Case ID to assign:');
+                    if (task) {
+                      addDoc(collection(db, 'messages'), {
+                        to: vol.id,
+                        from: 'NGO Admin',
+                        text: `NEW ASSIGNMENT: ${task}`,
+                        type: 'task',
+                        timestamp: serverTimestamp()
+                      });
+                      alert('Task assigned via message box!');
+                    }
+                  }}
+                >
+                  Assign Task
+                </button>
               </div>
             </div>
-            <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--danger-red-bg)', color: 'var(--danger-red)', padding: '4px 8px', borderRadius: 4 }}>HIGH RISK</span>
-          </div>
-          
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
-              <span>Current Shift Workload</span>
-              <span>94%</span>
-            </div>
-            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3 }}>
-              <div style={{ width: '94%', height: '100%', background: 'var(--danger-red)', borderRadius: 3 }} />
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 24 }}>
-            <Clock size={14} /> Active Time
-            <span style={{ marginLeft: 'auto', fontWeight: 600, color: 'var(--danger-red)' }}>14h 20m</span>
-          </div>
 
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Message</button>
-            <button className="btn" style={{ flex: 1, justifyContent: 'center', background: 'var(--danger-red-bg)', color: 'var(--danger-red)' }}>Mandate Break</button>
-          </div>
-        </div>
-
-        {/* Medium Risk Card */}
-        <div className="card" style={{ borderTop: '4px solid var(--warning-orange)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fef3c7', overflow: 'hidden' }}>
-                <img src="https://i.pravatar.cc/150?u=david" alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600 }}>David Chen</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Logistics • Sector 2</div>
-              </div>
-            </div>
-            <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--warning-orange-bg)', color: 'var(--warning-orange)', padding: '4px 8px', borderRadius: 4 }}>MED RISK</span>
-          </div>
-          
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
-              <span>Current Shift Workload</span>
-              <span>78%</span>
-            </div>
-            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3 }}>
-              <div style={{ width: '78%', height: '100%', background: 'var(--warning-orange)', borderRadius: 3 }} />
+            <div style={{ marginTop: 12 }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '8px', fontSize: 12 }}
+                onClick={() => {
+                  const msg = prompt(`Message ${vol.name}:`);
+                  if (msg) {
+                    addDoc(collection(db, 'messages'), {
+                      to: vol.id,
+                      from: 'NGO Admin',
+                      text: msg,
+                      type: 'direct',
+                      timestamp: serverTimestamp()
+                    });
+                    alert('Message sent!');
+                  }
+                }}
+              >
+                Send Message
+              </button>
             </div>
           </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 24 }}>
-            <Clock size={14} /> Active Time
-            <span style={{ marginLeft: 'auto', fontWeight: 600, color: 'var(--warning-orange)' }}>9h 45m</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Message</button>
-            <button className="btn" style={{ flex: 1, justifyContent: 'center', background: 'white', border: '1px solid var(--warning-orange)', color: 'var(--warning-orange)' }}>Suggest Break</button>
-          </div>
-        </div>
-
-        {/* Low Risk Card */}
-        <div className="card" style={{ borderTop: '4px solid var(--success-green)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#d1fae5', overflow: 'hidden' }}>
-                <img src="https://i.pravatar.cc/150?u=elena" alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600 }}>Elena Rodriguez</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Comms • HQ</div>
-              </div>
-            </div>
-            <span style={{ fontSize: 10, fontWeight: 700, background: 'var(--success-green-bg)', color: 'var(--success-green)', padding: '4px 8px', borderRadius: 4 }}>LOW RISK</span>
-          </div>
-          
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
-              <span>Current Shift Workload</span>
-              <span>42%</span>
-            </div>
-            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 3 }}>
-              <div style={{ width: '42%', height: '100%', background: 'var(--success-green)', borderRadius: 3 }} />
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 24 }}>
-            <Clock size={14} /> Active Time
-            <span style={{ marginLeft: 'auto', fontWeight: 600, color: 'var(--text-primary)' }}>3h 15m</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>View Profile</button>
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="card" style={{ marginBottom: 32 }}>

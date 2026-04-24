@@ -24,7 +24,8 @@ async function processNewInput(rawData) {
     metadata: {
       created_at: new Date().toISOString(),
       volunteer_id: rawData.volunteer_id || 'anonymous'
-    }
+    },
+    ai_summary: ""
   };
 
   try {

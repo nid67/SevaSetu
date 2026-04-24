@@ -1,19 +1,54 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Cloud, Users, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Cloud, ArrowRight, Lock, Mail } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(null);
+  const [role, setRole] = useState('volunteer'); // 'volunteer' or 'ngo'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (role) => {
-    setLoading(role);
-    setTimeout(() => {
-      login(role);
-      navigate(role === 'volunteer' ? '/dashboard' : '/ngo');
-    }, 800);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      if (role === 'ngo') {
+        if (email === 'admin@sevasetu.org' && password === 'admin123') {
+          login('ngo', { name: 'NGO Admin', email: 'admin@sevasetu.org' });
+          navigate('/ngo');
+        } else {
+          setError('Invalid NGO credentials');
+        }
+      } else {
+        const q = query(
+          collection(db, 'volunteers'),
+          where('email', '==', email),
+          where('phone', '==', password)
+        );
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+          login('volunteer', userData);
+          navigate('/dashboard');
+        } else {
+          setError('Invalid Volunteer ID or Password (Mobile No)');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Login failed: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,8 +62,7 @@ function Login() {
     }}>
       <div style={{ maxWidth: 900, width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center' }}>
         
-        {/* Left Side: Branding */}
-        <div>
+        <div className="animate-fade-in">
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
             <div style={{ background: '#111', padding: 12, borderRadius: 12, color: 'white' }}>
               <Cloud size={32} />
@@ -43,64 +77,58 @@ function Login() {
           </p>
         </div>
 
-        {/* Right Side: Role Selection */}
-        <div className="card" style={{ padding: 40, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-          <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Welcome Back</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 32 }}>Please select your portal to continue.</p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            
-            {/* Volunteer Option */}
-            <div 
-              onClick={() => handleLogin('volunteer')}
-              style={{ 
-                padding: 24, border: '2px solid var(--border-color)', borderRadius: 12, cursor: 'pointer',
-                transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: 20,
-                background: loading === 'volunteer' ? '#f0f5ff' : 'white',
-                borderColor: loading === 'volunteer' ? 'var(--primary-blue)' : 'var(--border-color)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary-blue)'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = loading === 'volunteer' ? 'var(--primary-blue)' : 'var(--border-color)'}
+        <div className="card animate-fade-in" style={{ padding: 40, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 8, padding: 4, marginBottom: 32 }}>
+            <button 
+              onClick={() => setRole('volunteer')}
+              className={role === 'volunteer' ? 'btn-toggle-active' : 'btn-toggle'}
+              style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: role === 'volunteer' ? 'white' : 'transparent', boxShadow: role === 'volunteer' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
             >
-              <div style={{ background: '#e0e7ff', color: 'var(--primary-blue)', padding: 12, borderRadius: 10 }}>
-                <Users size={24} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>Volunteer Portal</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Field data ingestion & status tracking</div>
-              </div>
-              <ArrowRight size={20} color="var(--text-muted)" />
-            </div>
-
-            {/* NGO Option */}
-            <div 
-              onClick={() => handleLogin('ngo')}
-              style={{ 
-                padding: 24, border: '2px solid var(--border-color)', borderRadius: 12, cursor: 'pointer',
-                transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: 20,
-                background: loading === 'ngo' ? '#f0f5ff' : 'white',
-                borderColor: loading === 'ngo' ? 'var(--primary-blue)' : 'var(--border-color)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary-blue)'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = loading === 'ngo' ? 'var(--primary-blue)' : 'var(--border-color)'}
+              Volunteer
+            </button>
+            <button 
+              onClick={() => setRole('ngo')}
+              className={role === 'ngo' ? 'btn-toggle-active' : 'btn-toggle'}
+              style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: role === 'ngo' ? 'white' : 'transparent', boxShadow: role === 'ngo' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
             >
-              <div style={{ background: '#fef3c7', color: 'var(--warning-orange)', padding: 12, borderRadius: 10 }}>
-                <ShieldCheck size={24} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>NGO Coordinator</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Crisis oversight & resource management</div>
-              </div>
-              <ArrowRight size={20} color="var(--text-muted)" />
-            </div>
-
+              NGO Admin
+            </button>
           </div>
+
+          <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{role === 'volunteer' ? 'Volunteer Login' : 'NGO Portal'}</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 32, fontSize: 14 }}>
+            {role === 'volunteer' ? 'Use your registered email and mobile number.' : 'Enter your coordinator credentials.'}
+          </p>
+
+          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 20 }}>
+            <div style={{ position: 'relative' }}>
+              <Mail style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-muted)' }} size={18} />
+              <input 
+                type="email" required placeholder="Email Address" 
+                className="search-bar" style={{ width: '100%', paddingLeft: 42, background: 'white', border: '1px solid var(--border-color)' }}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div style={{ position: 'relative' }}>
+              <Lock style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-muted)' }} size={18} />
+              <input 
+                type="password" required placeholder={role === 'volunteer' ? 'Mobile Number (Password)' : 'Password'}
+                className="search-bar" style={{ width: '100%', paddingLeft: 42, background: 'white', border: '1px solid var(--border-color)' }}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            {error && <div style={{ color: 'var(--danger-red)', fontSize: 13, fontWeight: 600 }}>{error}</div>}
+
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
+              {loading ? 'Authenticating...' : 'Sign In to Portal'} <ArrowRight size={18} />
+            </button>
+          </form>
 
           <div style={{ marginTop: 40, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-            SevaSetu v1.0.0 • Secure Hackathon Build
+            SevaSetu v1.0.0
           </div>
         </div>
-
       </div>
     </div>
   );

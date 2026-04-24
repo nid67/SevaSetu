@@ -1,17 +1,26 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSystem } from '../context/SystemContext';
 import { 
   LayoutDashboard, UploadCloud, FileText, Users, Map, 
-  Settings, HelpCircle, AlertTriangle, Cloud, ShieldCheck, LogOut 
+  Settings, HelpCircle, AlertTriangle, Cloud, ShieldCheck, LogOut, Mail
 } from 'lucide-react';
 
 function Sidebar() {
-  const { role, logout } = useAuth();
+  const { role, logout, user } = useAuth();
+  const { triggerEmergency } = useSystem();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleEmergency = () => {
+    const msg = window.prompt("Enter emergency details (e.g. Flood alert in Sector 4):");
+    if (msg) {
+      triggerEmergency(user.name, msg);
+    }
   };
 
   return (
@@ -26,7 +35,7 @@ function Sidebar() {
         </div>
       </div>
 
-      <button className="btn btn-danger emergency-alert-btn">
+      <button className="btn btn-danger emergency-alert-btn" onClick={handleEmergency}>
         <AlertTriangle size={16} />
         Emergency Alert
       </button>
@@ -64,7 +73,10 @@ function Sidebar() {
       </div>
 
       <div style={{ padding: '16px', borderTop: '1px solid var(--border-color)' }}>
-        <NavLink to="/settings" className="nav-item" style={{ marginBottom: 4 }}>
+        <NavLink to="/messages" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'} style={{ marginBottom: 4 }}>
+          <Mail size={20} /> Message Box
+        </NavLink>
+        <NavLink to="/settings" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'} style={{ marginBottom: 4 }}>
           <Settings size={20} /> Settings
         </NavLink>
         <div onClick={handleLogout} className="nav-item" style={{ cursor: 'pointer', color: 'var(--danger-red)' }}>

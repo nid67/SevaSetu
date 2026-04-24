@@ -48,6 +48,46 @@ function DataIngestion() {
     return () => unsub();
   }, [caseId]);
 
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1280; // Standard for Gemini processing
+
+          if (width > height) {
+            if (width > maxDim) {
+              height *= maxDim / width;
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Get base64 at 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleUpload = async () => {
     if (inputType === 'text' && !rawInput.trim()) {
       setError('Please provide some input data.');
@@ -65,11 +105,29 @@ function DataIngestion() {
     setCaseData(null);
 
     try {
-      // In a real production app with voice/image, we would use FormData to upload the file to Storage first.
-      // For this hackathon ingestion flow, we send the content or a mock path.
+      let content = rawInput;
+      let fileData = null;
+
+      if (inputType === 'image') {
+        fileData = await compressImage(selectedFile);
+        content = `[Uploaded Image: ${selectedFile.name}]`;
+      } else if (inputType === 'voice') {
+        // For voice, we still use standard base64 for now
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(selectedFile);
+        fileData = await base64Promise;
+        content = `[Uploaded Audio: ${selectedFile.name}]`;
+      }
+
       const payload = {
         input_type: inputType,
-        content: inputType === 'text' ? rawInput : `[Uploaded File: ${selectedFile.name}]`,
+        content: content,
+        media_base64: fileData,
+        mime_type: inputType === 'image' ? 'image/jpeg' : selectedFile?.type,
         volunteer_id: 'vol_demo_123'
       };
 
@@ -160,23 +218,40 @@ function DataIngestion() {
               <div style={{ 
                 flex: 1, border: '2px dashed var(--border-color)', borderRadius: 12, 
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                minHeight: 250, background: '#fafafa', position: 'relative'
+                minHeight: 250, background: '#fafafa', position: 'relative', overflow: 'hidden'
               }}>
+                {selectedFile && inputType === 'image' && selectedFile.type.startsWith('image/') ? (
+                  <img 
+                    src={URL.createObjectURL(selectedFile)} 
+                    alt="Preview" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} 
+                  />
+                ) : null}
                 <input 
                   type="file" 
                   accept={inputType === 'voice' ? 'audio/*' : 'image/*,video/*'}
                   onChange={handleFileChange}
-                  style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                  style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
                 />
-                <div style={{ width: 48, height: 48, background: '#e0e7ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                  {inputType === 'voice' ? <Mic color="var(--primary-blue)" /> : <ImageIcon color="var(--primary-blue)" />}
-                </div>
-                <p style={{ fontWeight: 600, marginBottom: 4 }}>
-                  {selectedFile ? selectedFile.name : `Click to upload ${inputType} report`}
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  {inputType === 'voice' ? 'MP3, WAV or AAC (max. 10MB)' : 'JPG, PNG or MP4 (max. 50MB)'}
-                </p>
+                {!selectedFile && (
+                  <>
+                    <div style={{ width: 48, height: 48, background: '#e0e7ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                      {inputType === 'voice' ? <Mic color="var(--primary-blue)" /> : <ImageIcon color="var(--primary-blue)" />}
+                    </div>
+                    <p style={{ fontWeight: 600, marginBottom: 4 }}>
+                      Click to upload {inputType} report
+                    </p>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {inputType === 'voice' ? 'MP3, WAV or AAC (max. 10MB)' : 'JPG, PNG or MP4 (max. 50MB)'}
+                    </p>
+                  </>
+                )}
+                {selectedFile && (
+                  <div style={{ position: 'absolute', bottom: 12, left: 12, right: 12, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, zIndex: 5 }}>
+                    {inputType === 'voice' ? <Mic size={14} color="var(--primary-blue)" /> : <ImageIcon size={14} color="var(--primary-blue)" />}
+                    <span style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</span>
+                  </div>
+                )}
               </div>
             )}
             
@@ -254,7 +329,7 @@ function DataIngestion() {
 
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: 'block', fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, textTransform: 'uppercase' }}>Transcribed Context</label>
-            <textarea value={caseData?.formatted_input || ''} readOnly style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: 13, minHeight: 80, resize: 'none', color: 'var(--text-secondary)', background: '#f9fbfd' }} />
+            <textarea value={caseData?.ai_summary || caseData?.formatted_input || ''} readOnly style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: 13, minHeight: 80, resize: 'none', color: 'var(--text-secondary)', background: '#f9fbfd' }} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, borderTop: '1px solid var(--border-color)', paddingTop: 24 }}>

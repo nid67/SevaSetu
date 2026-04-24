@@ -13,7 +13,10 @@ function Overview() {
     const unsub = onSnapshot(q, (snapshot) => {
       const fetchedCases = [];
       snapshot.forEach((doc) => {
-        fetchedCases.push(doc.data());
+        const data = doc.data();
+        if (data.status !== 'removed') {
+          fetchedCases.push(data);
+        }
       });
       setCases(fetchedCases);
     }, (err) => {

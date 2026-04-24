@@ -8,22 +8,25 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const savedRole = localStorage.getItem('seva_role');
-    if (savedRole) {
+    const savedUser = localStorage.getItem('seva_user');
+    if (savedRole && savedUser) {
       setRole(savedRole);
-      setUser({ name: savedRole === 'volunteer' ? 'Field Volunteer' : 'NGO Coordinator' });
+      setUser(JSON.parse(savedUser));
     }
   }, []);
 
-  const login = (selectedRole) => {
+  const login = (selectedRole, userData) => {
     setRole(selectedRole);
-    setUser({ name: selectedRole === 'volunteer' ? 'Field Volunteer' : 'NGO Coordinator' });
+    setUser(userData);
     localStorage.setItem('seva_role', selectedRole);
+    localStorage.setItem('seva_user', JSON.stringify(userData));
   };
 
   const logout = () => {
     setRole(null);
     setUser(null);
     localStorage.removeItem('seva_role');
+    localStorage.removeItem('seva_user');
   };
 
   return (

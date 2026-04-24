@@ -7,22 +7,23 @@
   },
   "main": "index.js",
   "scripts": {
-    "serve": "firebase emulators:start --only functions,firestore,storage",
+    "serve": "node index.js",
     "shell": "firebase functions:shell",
-    "start": "npm run shell",
+    "start": "node index.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
   "dependencies": {
+    "@google-cloud/speech": "^6.3.0",
+    "@google-cloud/vertexai": "^1.0.0",
+    "@google-cloud/vision": "^4.1.0",
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.0",
     "firebase-admin": "^12.0.0",
     "firebase-functions": "^5.0.0",
-    "express": "^4.19.0",
-    "cors": "^2.8.5",
-    "@google-cloud/speech": "^6.3.0",
-    "@google-cloud/vision": "^4.1.0",
-    "@google-cloud/vertexai": "^1.0.0",
-    "uuid": "^9.0.1",
-    "dotenv": "^16.4.5"
+    "uuid": "^9.0.1"
   },
   "private": true
 }

@@ -8,6 +8,7 @@ async function buildAndStoreCase(currentCase) {
     // Raw inputs
     raw_input: currentCase.raw_input,
     formatted_input: currentCase.formatted_input,
+    ai_summary: currentCase.ai_summary,
     input_type: currentCase.input_type,
     
     // [CONTRACT] PS2 reads this
