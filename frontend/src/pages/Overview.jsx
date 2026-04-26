@@ -14,7 +14,8 @@ function Overview() {
       const fetchedCases = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.status !== 'removed') {
+        const allowedStatuses = ['verified', 'assigned', 'completed'];
+        if (allowedStatuses.includes(data.status)) {
           fetchedCases.push(data);
         }
       });
@@ -97,15 +98,35 @@ function Overview() {
               <th>Urgency</th>
               <th>Priority Score</th>
               <th>Status</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {cases.length === 0 ? (
-              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No cases reported yet.</td></tr>
+              <tr><td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>No cases reported yet.</td></tr>
             ) : cases.map((c, i) => {
               const priority = c.context?.urgency_assessment || 'Low';
               const badgeClass = priority === 'High' ? 'badge-critical' : priority === 'Medium' ? 'badge-high' : 'badge-routine';
               
+              const handleAction = async (newStatus) => {
+                try {
+                  const docRef = doc(db, 'cases', c.case_id);
+                  const updateData = { 
+                    status: newStatus,
+                    'metadata.updated_at': new Date().toISOString()
+                  };
+                  if (newStatus === 'assigned') {
+                    updateData.assigned_at = new Date().toISOString();
+                  } else if (newStatus === 'completed') {
+                    updateData.completed_at = new Date().toISOString();
+                  }
+                  await updateDoc(docRef, updateData);
+                } catch (err) {
+                  console.error("Error updating task:", err);
+                  alert("Failed to update task status");
+                }
+              };
+
               return (
                 <tr key={i}>
                   <td style={{ fontWeight: 600 }}>{c.case_id}</td>
@@ -131,11 +152,22 @@ function Overview() {
                   <td>
                     <span style={{ 
                       fontSize: 12, fontWeight: 500, padding: '4px 8px', borderRadius: 4,
-                      background: c.status === 'pending_validation' ? 'var(--warning-orange-bg)' : '#f3f4f6',
-                      color: c.status === 'pending_validation' ? 'var(--warning-orange)' : 'var(--text-primary)'
+                      background: c.status === 'verified' ? '#dcfce7' : c.status === 'assigned' ? '#e0e7ff' : '#f3f4f6',
+                      color: c.status === 'verified' ? '#16a34a' : c.status === 'assigned' ? 'var(--primary-blue)' : 'var(--text-primary)'
                     }}>
                       {c.status.replace(/_/g, ' ')}
                     </span>
+                  </td>
+                  <td>
+                    {c.status === 'verified' && (
+                      <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 11 }} onClick={() => handleAction('assigned')}>Accept Task</button>
+                    )}
+                    {c.status === 'assigned' && (
+                      <button className="btn btn-outline" style={{ padding: '4px 12px', fontSize: 11, borderColor: '#16a34a', color: '#16a34a' }} onClick={() => handleAction('completed')}>Complete</button>
+                    )}
+                    {c.status === 'completed' && (
+                      <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>Done</span>
+                    )}
                   </td>
                 </tr>
               );

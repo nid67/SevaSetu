@@ -9,6 +9,7 @@ const classifyContext = require('./stages/04_contextClassification');
 const scorePriority = require('./stages/05_priorityScoring');
 const cleanData = require('./stages/06_dataCleaning');
 const buildAndStoreCase = require('./stages/07_caseBuilding');
+const runVerificationEngine = require('./stages/08_verificationEngine');
 
 async function processNewInput(rawData) {
   const caseId = `CAS-${Date.now().toString().slice(-4)}${Math.floor(Math.random() * 1000)}`;

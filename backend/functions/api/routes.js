@@ -81,6 +81,8 @@ router.patch('/validate/:caseId', async (req, res, next) => {
   }
 });
 
+const runVerificationEngine = require('../pipeline/stages/08_verificationEngine');
+
 // POST /api/v1/handoff/:caseId
 router.post('/handoff/:caseId', async (req, res, next) => {
   try {
@@ -93,6 +95,27 @@ router.post('/handoff/:caseId', async (req, res, next) => {
     });
 
     res.status(200).json({ message: 'Handoff successful' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/verify/:caseId - Manually trigger PS2 Verification
+router.post('/verify/:caseId', async (req, res, next) => {
+  try {
+    const { caseId } = req.params;
+    const doc = await db.collection('cases').doc(caseId).get();
+    
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const result = await runVerificationEngine(doc.data());
+    res.status(200).json({ 
+      message: 'Verification successful', 
+      verification: result.verification,
+      status: result.status 
+    });
   } catch (error) {
     next(error);
   }

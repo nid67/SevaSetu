@@ -12,10 +12,17 @@ if (!admin.apps.length) {
 
   // Resolve service account path relative to backend root if it exists
   const saPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  
   if (saPath) {
     const resolvedPath = path.resolve(__dirname, '../../', saPath);
+    
     if (fs.existsSync(resolvedPath)) {
+      // Force absolute path in environment so other Google SDKs can find it
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = resolvedPath;
       config.credential = admin.credential.cert(resolvedPath);
+      console.log('[Firebase Config] Successfully loaded credentials from:', resolvedPath);
+    } else {
+      console.warn('[Firebase Config] Service account NOT found at:', resolvedPath);
     }
   }
 

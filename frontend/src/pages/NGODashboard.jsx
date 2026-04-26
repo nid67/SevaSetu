@@ -8,6 +8,7 @@ function NGODashboard() {
   const [volunteers, setVolunteers] = useState([]);
   const [showMap, setShowMap] = useState(false);
   const [filter, setFilter] = useState('active'); // 'active', 'removed'
+  const [selectedCase, setSelectedCase] = useState(null);
 
   useEffect(() => {
     // Listen for all cases
@@ -50,6 +51,21 @@ function NGODashboard() {
     } catch (err) {
       console.error("Error updating case:", err);
       alert(`Failed to ${action} case: ` + err.message);
+    }
+  };
+
+  const handleVerify = async (caseId) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/v1/verify/${caseId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Verification failed');
+      const data = await response.json();
+      console.log("Verification result:", data);
+      alert(`Case ${caseId} verified successfully!`);
+    } catch (err) {
+      console.error("Verification error:", err);
+      alert("Verification failed: " + err.message);
     }
   };
 
@@ -187,21 +203,29 @@ function NGODashboard() {
                 <th>Status</th>
                 <th>Location</th>
                 <th>Need Detail</th>
+                <th>Trust & Safety</th>
                 <th>Priority</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredQueue.length === 0 ? (
-                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No cases found in this view.</td></tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No cases found in this view.</td></tr>
               ) : filteredQueue.map((item, i) => (
-                <tr key={i} style={{ background: item.status === 'pending_validation' ? '#fffbeb' : 'white' }}>
+                <tr 
+                  key={i} 
+                  onClick={() => setSelectedCase(item)}
+                  style={{ 
+                    background: item.status === 'pending_validation' ? '#fffbeb' : 'white',
+                    cursor: 'pointer'
+                  }}
+                >
                   <td style={{ fontWeight: 600 }}>{item.case_id}</td>
                   <td>
                     <span style={{ 
                       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, 
-                      background: item.status === 'removed' ? '#fee2e2' : '#e0e7ff',
-                      color: item.status === 'removed' ? '#dc2626' : 'var(--primary-blue)',
+                      background: item.status === 'removed' ? '#fee2e2' : item.status === 'verified' ? '#dcfce7' : '#e0e7ff',
+                      color: item.status === 'removed' ? '#dc2626' : item.status === 'verified' ? '#16a34a' : 'var(--primary-blue)',
                       textTransform: 'uppercase'
                     }}>
                       {item.status || 'Active'}
@@ -211,6 +235,28 @@ function NGODashboard() {
                   <td>
                     <div style={{ fontSize: 13 }}>{item.structured_data?.need?.primary_need || 'General Request'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.structured_data?.need?.specifics || item.raw_input?.substring(0, 30) + '...'}</div>
+                  </td>
+                  <td>
+                    {item.verification ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: item.verification.trust_score > 0.7 ? '#16a34a' : item.verification.trust_score > 0.4 ? 'var(--warning-orange)' : '#dc2626' }}>
+                            {Math.round(item.verification.trust_score * 100)}% Trust
+                          </span>
+                          {item.verification.is_duplicate && (
+                            <span style={{ fontSize: 9, background: '#fef3c7', color: '#92400e', padding: '1px 4px', borderRadius: 2, fontWeight: 600 }}>DUPLICATE</span>
+                          )}
+                          {item.verification.suspicion_flag && (
+                            <AlertCircle size={12} color="#dc2626" title="Suspicious Pattern Detected" />
+                          )}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.verification.explanation}>
+                          {item.verification.explanation}
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>Pending Verification...</span>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -234,7 +280,22 @@ function NGODashboard() {
                         </button>
                       ) : (
                         <>
-                          <button className="btn btn-outline" style={{ padding: '4px 12px', fontSize: 11 }}>Verify</button>
+                          <button 
+                            className="btn btn-outline" 
+                            style={{ 
+                              padding: '4px 12px', fontSize: 11, 
+                              background: item.status === 'verified' ? '#f0fdf4' : 'transparent',
+                              borderColor: item.status === 'verified' ? '#16a34a' : 'var(--border-color)',
+                              color: item.status === 'verified' ? '#16a34a' : 'inherit'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleVerify(item.case_id);
+                            }}
+                            disabled={item.status === 'verified'}
+                          >
+                            {item.status === 'verified' ? 'Verified' : 'Verify'}
+                          </button>
                           <button 
                             onClick={() => handleStatusUpdate(item.case_id, 'removed')}
                             style={{ 
@@ -253,6 +314,93 @@ function NGODashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Case Details Sidebar */}
+      {selectedCase && (
+        <div className="modal-overlay" onClick={() => setSelectedCase(null)}>
+          <div className="modal-content animate-slide-in" style={{ 
+            position: 'fixed', right: 0, top: 0, bottom: 0, width: 500, margin: 0, borderRadius: 0,
+            overflowY: 'auto', padding: 32, boxShadow: '-10px 0 30px rgba(0,0,0,0.1)'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+              <div>
+                <h2 style={{ fontSize: 24, fontWeight: 700 }}>Case Details</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>ID: {selectedCase.case_id}</p>
+              </div>
+              <X size={24} onClick={() => setSelectedCase(null)} style={{ cursor: 'pointer' }} />
+            </div>
+
+            <div style={{ display: 'grid', gap: 32 }}>
+              <section>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status & Timeline</label>
+                <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
+                   <span style={{ 
+                      fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 99,
+                      background: selectedCase.status === 'verified' ? '#dcfce7' : '#e0e7ff',
+                      color: selectedCase.status === 'verified' ? '#16a34a' : 'var(--primary-blue)'
+                   }}>
+                     {selectedCase.status.toUpperCase()}
+                   </span>
+                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Created: {new Date(selectedCase.metadata?.created_at).toLocaleString()}</span>
+                </div>
+              </section>
+
+              <section>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>AI Analysis</label>
+                <div className="card" style={{ marginTop: 12, background: '#f8fafc' }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5 }}>{selectedCase.ai_summary}</p>
+                </div>
+              </section>
+
+              <section>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Structured Data</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
+                  <div className="card" style={{ padding: 16 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 }}>LOCATION</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{selectedCase.structured_data?.location?.city || 'Unknown City'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{selectedCase.structured_data?.location?.raw}</div>
+                  </div>
+                  <div className="card" style={{ padding: 16 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 }}>PRIMARY NEED</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{selectedCase.structured_data?.need?.primary_need}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{selectedCase.structured_data?.need?.specifics}</div>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Verification & Trust</label>
+                {selectedCase.verification ? (
+                  <div className="card" style={{ marginTop: 12, borderLeft: `4px solid ${selectedCase.verification.trust_score > 0.7 ? '#16a34a' : 'var(--warning-orange)'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <span style={{ fontWeight: 700 }}>{Math.round(selectedCase.verification.trust_score * 100)}% Trust Score</span>
+                      {selectedCase.verification.suspicion_flag && <span style={{ color: 'var(--danger-red)', fontSize: 11, fontWeight: 700 }}>SUSPICIOUS</span>}
+                    </div>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{selectedCase.verification.explanation}</p>
+                    {selectedCase.verification.is_duplicate && (
+                      <div style={{ marginTop: 12, padding: 8, background: '#fffbeb', borderRadius: 6, fontSize: 11, border: '1px solid #fde68a' }}>
+                        Potential Duplicate of: {selectedCase.verification.duplicate_case_ids?.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p style={{ marginTop: 12, fontStyle: 'italic', color: 'var(--text-muted)' }}>Verification in progress...</p>
+                )}
+              </section>
+
+              <section>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Raw Input</label>
+                <pre style={{ 
+                  marginTop: 12, background: '#f1f5f9', padding: 16, borderRadius: 8, fontSize: 12, 
+                  whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: '#475569'
+                }}>
+                  {selectedCase.raw_input}
+                </pre>
+              </section>
+            </div>
+          </div>
         </div>
       )}
     </div>

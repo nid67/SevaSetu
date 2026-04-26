@@ -2,10 +2,12 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const { onRequest } = require('firebase-functions/v2/https');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./api/routes');
 const { logger } = require('./utils/logger');
+const runVerificationEngine = require('./pipeline/stages/08_verificationEngine');
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -31,5 +33,25 @@ if (process.env.NODE_ENV !== 'production' && require.main === module) {
     console.log(`Local server running on http://localhost:${PORT}/api/v1`);
   });
 }
+
+/* 
+// PS2 - Verification & Trust Engine Trigger - DISABLED for manual verification
+exports.onCaseReadyForVerification = onDocumentUpdated('cases/{caseId}', async (event) => {
+  const beforeData = event.data.before.data();
+  const afterData = event.data.after.data();
+
+  const isNowReady = afterData.status === 'ready_for_verification';
+  const wasNotReady = beforeData.status !== 'ready_for_verification';
+  
+  if (isNowReady && (wasNotReady || !afterData.verification)) {
+    try {
+      logger.info(`Triggering Verification Engine for case ${event.params.caseId}`);
+      await runVerificationEngine(afterData);
+    } catch (error) {
+      logger.error(`Failed to verify case ${event.params.caseId}:`, error);
+    }
+  }
+});
+*/
 
 exports.api = onRequest({ cors: true, maxInstances: 10 }, app);
